@@ -58,19 +58,19 @@ void MainWindow::on_connectButton_clicked()
 
 int MainWindow::freqToHex1()
 {
-    double test = ui->freqBox->value();
-    test*=10;
-    short test3 = test;
+    double octetSpeed1 = ui->freqBox->value();
+    octetSpeed1*=10;
+    short octetSpeed1_short = octetSpeed1;
     int final;
 
-    QString test2=QString::number(test3, 16);
+    QString octetSpeed1_string = QString::number(octetSpeed1_short, 16);
 
-    if (test2.length() <= 2)
+    if (octetSpeed1_string.length() <= 2)
     {
         final = 0;
-    }else if (test2.length() == 3)
+    }else if (octetSpeed1_string.length() == 3)
     {
-        final = test2.mid(0, 1).toInt(0, 16);
+        final = octetSpeed1_string.mid(0, 1).toInt(0, 16);
     }
 
     qDebug() << "octet1 : " << final;
@@ -82,19 +82,19 @@ int MainWindow::freqToHex1()
 
 int MainWindow::freqToHex2()
 {
-    double test = ui->freqBox->value();
-    test*=10;
-    short test3 = test;
+    double octetSpeed2 = ui->freqBox->value();
+    octetSpeed2*=10;
+    short octetSpeed2_short = octetSpeed2;
     int final;
 
-    QString test2=QString::number(test3, 16);
+    QString octetSpeed2_string = QString::number(octetSpeed2_short, 16);
 
-    if (test2.length() <= 2)
+    if (octetSpeed2_string.length() <= 2)
     {
-        final = test2.toInt(0, 16);
-    }else if (test2.length()  == 3)
+        final = octetSpeed2_string.toInt(0, 16);
+    }else if (octetSpeed2_string.length()  == 3)
     {
-        final = test2.mid(1, 2).toInt(0, 16);
+        final = octetSpeed2_string.mid(1, 2).toInt(0, 16);
     }
 
     qDebug() << hex << "octet2 : " << final;
@@ -144,13 +144,11 @@ void MainWindow::setSpeed()
     data2[3] = 0x36;
     data2[4] = freqToHex1();
     data2[5] = freqToHex2();
-    //data2[6] = 0x62;
-    //data2[7] = 0x34;
 
-    unsigned short test = calcCrc(data2, data2.length());
-    qDebug() << "test : " << hex << test;
+    unsigned short crc_short = calcCrc(data2, data2.length());
+    qDebug() << "test : " << hex << crc_short;
 
-    QString crc = QString::number(test, 16);
+    QString crc = QString::number(crc_short, 16);
     if (crc.length() == 2)
     {
         crc = "00" + crc;
