@@ -7,6 +7,7 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     once = false;
+    ui->label_status->setStyleSheet("color: #FF0000");
     ui->freqBox->setDecimals(1);
     ui->freqBox->setSingleStep(0.1);
     ui->freqBox->setMinimum(0.0);
@@ -20,6 +21,19 @@ MainWindow::MainWindow(QWidget *parent) :
     serial->setParity(QSerialPort::EvenParity);
     serial->setStopBits(QSerialPort::OneStop);
     serial->open(QIODevice::ReadWrite);
+
+    /*
+    QByteArray startFrame;
+    startFrame[0] = 0x01;
+    startFrame[1] = 0x06;
+    startFrame[2] = 0x21;
+    startFrame[3] = 0x35;
+    startFrame[4] = 0x00;
+    startFrame[5] = 0x86;//86
+    startFrame[6] = 0x12;
+    startFrame[7] = 0x5A;
+    serial->write(startFrame);
+    */
 }
 
 MainWindow::~MainWindow()
@@ -48,9 +62,11 @@ void MainWindow::on_connectButton_clicked()
     if (once == false)
     {
         timer->connect(timer, SIGNAL(timeout()), this, SLOT(setSpeed()));
-        timer->start(3000);
+        timer->start(2000);
         once = true;
     }
+    ui->label_status->setStyleSheet("color: #00FF00");
+    ui->label_status->setText("Start");
 
     serial->write(data);
 }
@@ -73,12 +89,10 @@ int MainWindow::freqToHex1()
         final = octetSpeed1_string.mid(0, 1).toInt(0, 16);
     }
 
-    qDebug() << "octet1 : " << final;
+    //qDebug() << "octet1 : " << final;
 
     return final;
 }
-
-
 
 int MainWindow::freqToHex2()
 {
@@ -97,7 +111,7 @@ int MainWindow::freqToHex2()
         final = octetSpeed2_string.mid(1, 2).toInt(0, 16);
     }
 
-    qDebug() << hex << "octet2 : " << final;
+    //qDebug() << hex << "octet2 : " << final;
 
     return final;
 }
@@ -105,7 +119,7 @@ int MainWindow::freqToHex2()
 void MainWindow::readData()
 {
     QByteArray retrievedData = serial->readAll();
-    qDebug() << retrievedData;
+    qDebug() << hex << (int)retrievedData[4];
 }
 
 unsigned short MainWindow::calcCrc(QByteArray data, int len)
@@ -137,16 +151,15 @@ unsigned short MainWindow::calcCrc(QByteArray data, int len)
 
 void MainWindow::setSpeed()
 {
-    QByteArray data2;
-    data2[0] = 0x01;
-    data2[1] = 0x06;
-    data2[2] = 0x21;
-    data2[3] = 0x36;
-    data2[4] = freqToHex1();
-    data2[5] = freqToHex2();
+    QByteArray dataSpeed;
+    dataSpeed[0] = 0x01;
+    dataSpeed[1] = 0x06;
+    dataSpeed[2] = 0x21;
+    dataSpeed[3] = 0x36;
+    dataSpeed[4] = freqToHex1();
+    dataSpeed[5] = freqToHex2();
 
-    unsigned short crc_short = calcCrc(data2, data2.length());
-    qDebug() << "test : " << hex << crc_short;
+    unsigned short crc_short = calcCrc(dataSpeed, dataSpeed.length());
 
     QString crc = QString::number(crc_short, 16);
     if (crc.length() == 2)
@@ -157,25 +170,50 @@ void MainWindow::setSpeed()
         crc = "0" + crc;
     }
 
-    data2[6] = crc.mid(2, 2).toInt(0, 16);
-    data2[7] = crc.mid(0, 2).toInt(0, 16);
+    dataSpeed[6] = crc.mid(2, 2).toInt(0, 16);
+    dataSpeed[7] = crc.mid(0, 2).toInt(0, 16);
 
-    qDebug() << "crc : " << crc;
-
-    serial->write(data2);
+    serial->write(dataSpeed);
 }
 
 void MainWindow::on_stopButton_clicked()
 {
-    QByteArray data4;
-    data4[0] = 0x01;
-    data4[1] = 0x06;
-    data4[2] = 0x21;
-    data4[3] = 0x35;
-    data4[4] = 0x00;
-    data4[5] = 0x07;
-    data4[6] = 0xD2;
-    data4[7] = 0x3A;
+    QString value = ui->comboBox_stopType->currentText();
+    QByteArray dataStop;
+    dataStop[0] = 0x01;
+    dataStop[1] = 0x06;
+    dataStop[2] = 0x21;
+    dataStop[3] = 0x35;
+    if (value == "Arrêt roue libre")
+    {
+        dataStop[4] = 0x00;
+        dataStop[5] = 0x07;
+        dataStop[6] = 0xD2;
+        dataStop[7] = 0x3A;
+    }else{
+        dataStop[4] = 0x10;
+        dataStop[5] = 0x0F;
+        dataStop[6] = 0xDE;
+        dataStop[7] = 0x3C;
+    }
 
-    serial->write(data4);
+
+
+    ui->label_status->setStyleSheet("color: #FF0000");
+    ui->label_status->setText("Stop");
+    serial->write(dataStop);
+}
+
+void MainWindow::on_razButton1_clicked()
+{
+    QByteArray dataReset;
+    dataReset[0] = 0x01;
+    dataReset[1] = 0x06;
+    dataReset[2] = 0x21;
+    dataReset[3] = 0x35;
+    dataReset[4] = 0x00;
+    dataReset[5] = 0x86;//86
+    dataReset[6] = 0x12;
+    dataReset[7] = 0x5A;
+    serial->write(dataReset);
 }

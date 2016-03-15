@@ -5,7 +5,6 @@
 #include <QDebug>
 #include <QtSerialPort/QSerialPort>
 #include <QTimer>
-#include <QThread>
 
 namespace Ui {
 class MainWindow;
@@ -37,11 +36,15 @@ private slots:
 
     void on_stopButton_clicked();
 
+    void on_razButton1_clicked();
+
 private:
     Ui::MainWindow *ui;
     QSerialPort *serial;
     QTimer *timer;
+    QTimer *timer2;
     bool once;
+    int count;
 };
 
 #endif // MAINWINDOW_H
