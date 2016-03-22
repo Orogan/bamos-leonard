@@ -1,12 +1,17 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+/**
+ * @brief Constructeur de la classe MainWindow
+ * @details Charge tout les reglages devant être initialisés au lancement de l'application.
+ */
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
     once = false;
+    oldValue = 0.0;
     ui->label_status->setStyleSheet("color: #FF0000");
     ui->freqBox->setDecimals(1);
     ui->freqBox->setSingleStep(0.1);
@@ -14,39 +19,47 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->freqBox->setMaximum(50.0);
     serial = new QSerialPort(this);
     timer = new QTimer(this);
-    connect(serial, SIGNAL(readyRead()), this, SLOT(readData()));            
+    timerReset = new QTimer(this);
+    connect(serial, SIGNAL(readyRead()), this, SLOT(readData()));
     serial->setPortName("COM1");
     serial->setBaudRate(QSerialPort::Baud9600);
     serial->setDataBits(QSerialPort::Data8);
     serial->setParity(QSerialPort::EvenParity);
     serial->setStopBits(QSerialPort::OneStop);
     serial->open(QIODevice::ReadWrite);
-
-    /*
-    QByteArray startFrame;
-    startFrame[0] = 0x01;
-    startFrame[1] = 0x06;
-    startFrame[2] = 0x21;
-    startFrame[3] = 0x35;
-    startFrame[4] = 0x00;
-    startFrame[5] = 0x86;//86
-    startFrame[6] = 0x12;
-    startFrame[7] = 0x5A;
-    serial->write(startFrame);
-    */
+    connect(timerReset, SIGNAL(timeout()), this, SLOT(on_razButton1_clicked()));
+    timerReset->start(3000);
 }
 
+/**
+ * @brief Destructeur de la classe MainWindow
+ * @details On envoie une trame dans le destructeur afin de redefinir la valeur du variateur de vitesse à 0 et ainsi
+ * éviter toute valeur résiduelle
+ */
 MainWindow::~MainWindow()
 {
+    QByteArray resetSpeed;
+    resetSpeed[0] = 0x01;
+    resetSpeed[1] = 0x06;
+    resetSpeed[2] = 0x21;
+    resetSpeed[3] = 0x36;
+    resetSpeed[4] = 0x00;
+    resetSpeed[5] = 0x00;
+    resetSpeed[6] = 0x63;
+    resetSpeed[7] = 0xF8;
+    serial->write(resetSpeed);
     delete ui;
 }
-
 
 void MainWindow::on_disconnectButton_clicked()
 {
     serial->close();
 }
 
+/**
+ * @brief Boutton "Start", démarre le variateur de vitesse
+ * @details envoie une trame de démarage au variateur, stoppe le timer de reset, et lance le timer permetant de rafraichir la vitesse
+ */
 void MainWindow::on_connectButton_clicked()
 {
     QByteArray data;
@@ -61,6 +74,7 @@ void MainWindow::on_connectButton_clicked()
 
     if (once == false)
     {
+        timerReset->stop();
         timer->connect(timer, SIGNAL(timeout()), this, SLOT(setSpeed()));
         timer->start(2000);
         once = true;
@@ -71,7 +85,12 @@ void MainWindow::on_connectButton_clicked()
     serial->write(data);
 }
 
-
+/**
+ * @brief Converti l'octet de poid fort de decimal vers hexadecimal.
+ * @details Si cette convertion n'est pas faite, alors à partir de 10Hz sur l'IHM, (valeur 100), l'octet de poid fort prend 1, et le variateur admet
+ * cette valeur comme haxedecimale, le variateur passe donc à 25.6Hz au lieu de 10. (100 hexa  = 256 decimal)
+ * @return L'octet de poid fort converti en hexadecimal.
+ */
 int MainWindow::freqToHex1()
 {
     double octetSpeed1 = ui->freqBox->value();
@@ -94,6 +113,11 @@ int MainWindow::freqToHex1()
     return final;
 }
 
+/**
+ * @brief Converti l'octet de poid faible de décimal vers hexadecimal.
+ * @details Voir Description octet poid fort.
+ * @return L'octet de poid faible converti en héxadecimal.
+ */
 int MainWindow::freqToHex2()
 {
     double octetSpeed2 = ui->freqBox->value();
@@ -116,12 +140,26 @@ int MainWindow::freqToHex2()
     return final;
 }
 
+/**
+ * @brief Slot permettant de lire les données du variateur de vitesse.
+ * @details Peu important voire inutile: aucune donnée n'a besoin d'être récupérée, l'affichage se fait donc par un simple qDebug.
+ */
 void MainWindow::readData()
 {
     QByteArray retrievedData = serial->readAll();
     qDebug() << hex << (int)retrievedData[4];
 }
 
+/**
+ * @brief Algorithme permettant de calculer le CRC16 de chaque trame.
+ * @details Il faut faire attention à bien inverser les octets, car la fonction renvoie le permier l'octet de poids faible et en deuxième
+ * l'octet de poids fort.
+ *
+ * @param data Trame dont on veut calculer le CRC16.
+ * @param len Longueur de la trame en question.
+ *
+ * @return CRC16 de la trame.
+ */
 unsigned short MainWindow::calcCrc(QByteArray data, int len)
 {
     unsigned short crc = 0xFFFF;
@@ -149,6 +187,12 @@ unsigned short MainWindow::calcCrc(QByteArray data, int len)
     return crc;
 }
 
+/**
+ * @brief Fonction permettant d'envoyer les trames de vitesse (en Hz) au variateur de vitesse.
+ * @details On utilise les fonctions freqToHex1() et freqToHex2() pour calculer les octets 4 et 5 car ces derniers doivent
+ * pouvoir être modifiés à tout moment par l'utilisateur. Il en va de même avec les octets 6 et 7, ces derniers representant
+ * le CRC16, il doit être recalculé à chaque changement de valeur des octets 4 et 5.
+ */
 void MainWindow::setSpeed()
 {
     QByteArray dataSpeed;
@@ -162,6 +206,8 @@ void MainWindow::setSpeed()
     unsigned short crc_short = calcCrc(dataSpeed, dataSpeed.length());
 
     QString crc = QString::number(crc_short, 16);
+
+    //La fonction calcCrc omet les zéros de début de trame, il faut donc tester la longueur du crc et contatenner les zéros manquants si nécessaire.
     if (crc.length() == 2)
     {
         crc = "00" + crc;
@@ -170,12 +216,17 @@ void MainWindow::setSpeed()
         crc = "0" + crc;
     }
 
+    //Inversion des octets
     dataSpeed[6] = crc.mid(2, 2).toInt(0, 16);
     dataSpeed[7] = crc.mid(0, 2).toInt(0, 16);
 
     serial->write(dataSpeed);
 }
 
+/**
+ * @brief Permet l'arrêt de moteur.
+ * @details Envoie au variateur un trame d'arrêt. L'utilisateur peut choisir entre un arrêt roue libre ou un arrêt "forcé".
+ */
 void MainWindow::on_stopButton_clicked()
 {
     QString value = ui->comboBox_stopType->currentText();
@@ -204,6 +255,10 @@ void MainWindow::on_stopButton_clicked()
     serial->write(dataStop);
 }
 
+/**
+ * @brief Trame permetant de relancer le variateur de vitesse lorsque celui-ci est en SLF.
+ * @details Le boutton est ammené à disparaitre au profit de l'envoi d'une trame avec timer au lancement du programme.
+ */
 void MainWindow::on_razButton1_clicked()
 {
     QByteArray dataReset;

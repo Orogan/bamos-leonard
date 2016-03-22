@@ -42,9 +42,9 @@ private:
     Ui::MainWindow *ui;
     QSerialPort *serial;
     QTimer *timer;
-    QTimer *timer2;
+    QTimer *timerReset;
     bool once;
-    int count;
+    float oldValue;
 };
 
 #endif // MAINWINDOW_H
