@@ -27,8 +27,8 @@ MainWindow::MainWindow(QWidget *parent) :
     serial->setParity(QSerialPort::EvenParity);
     serial->setStopBits(QSerialPort::OneStop);
     serial->open(QIODevice::ReadWrite);
-    connect(timerReset, SIGNAL(timeout()), this, SLOT(on_razButton1_clicked()));
-    timerReset->start(3000);
+    connect(timerReset, SIGNAL(timeout()), this, SLOT(reset()));
+    timerReset->start(500);
 }
 
 /**
@@ -38,6 +38,7 @@ MainWindow::MainWindow(QWidget *parent) :
  */
 MainWindow::~MainWindow()
 {
+    qDebug() << "test";
     QByteArray resetSpeed;
     resetSpeed[0] = 0x01;
     resetSpeed[1] = 0x06;
@@ -51,9 +52,28 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::on_disconnectButton_clicked()
+/**
+ * @brief Permet de vérifier que la fréquence est à 0 à la fermeture de l'application.
+ * @details On vérifie que la fréquence est bien à 0 lors de la fermeture de l'application afin d'éviter toute valeur résiduelle
+ * lors du prochain lancement. On empêche l'utilisateur de fermer l'application grace à la méthode "ignore()" et on l'informe grace à
+ * une QMessageBox.
+ *
+ * @param event Correspond à l'evenement "apuyer sur la croix"
+ */
+void MainWindow::closeEvent (QCloseEvent *event)
 {
-    serial->close();
+    if (ui->freqBox->value() > 0.0)
+    {
+        QMessageBox msgBox;
+        msgBox.setIcon(QMessageBox::Warning);
+        msgBox.setText("Veuillez redefinir la fréquence à 0 avant de quitter l'application.");
+        msgBox.exec();
+
+        if (msgBox.Ok)
+        {
+            event->ignore();
+        }
+    }
 }
 
 /**
@@ -147,7 +167,7 @@ int MainWindow::freqToHex2()
 void MainWindow::readData()
 {
     QByteArray retrievedData = serial->readAll();
-    qDebug() << hex << (int)retrievedData[4];
+    qDebug() << retrievedData;
 }
 
 /**
@@ -259,7 +279,7 @@ void MainWindow::on_stopButton_clicked()
  * @brief Trame permetant de relancer le variateur de vitesse lorsque celui-ci est en SLF.
  * @details Le boutton est ammené à disparaitre au profit de l'envoi d'une trame avec timer au lancement du programme.
  */
-void MainWindow::on_razButton1_clicked()
+void MainWindow::reset()
 {
     QByteArray dataReset;
     dataReset[0] = 0x01;

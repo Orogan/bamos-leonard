@@ -5,6 +5,9 @@
 #include <QDebug>
 #include <QtSerialPort/QSerialPort>
 #include <QTimer>
+#include <QThread>
+#include <QCloseEvent>
+#include <QMessageBox>
 
 namespace Ui {
 class MainWindow;
@@ -20,7 +23,7 @@ public:
 
 private slots:
 
-    void on_disconnectButton_clicked();
+    void closeEvent(QCloseEvent *event);
 
     void on_connectButton_clicked();
 
@@ -36,7 +39,7 @@ private slots:
 
     void on_stopButton_clicked();
 
-    void on_razButton1_clicked();
+    void reset();
 
 private:
     Ui::MainWindow *ui;
