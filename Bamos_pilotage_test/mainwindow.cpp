@@ -5,7 +5,7 @@
  * @brief Constructeur de la classe MainWindow
  * @details Charge tout les reglages devant être initialisés au lancement de l'application.
  */
-MainWindow::MainWindow(QWidget *parent) :
+    MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
@@ -46,8 +46,21 @@ MainWindow::~MainWindow()
     resetSpeed[3] = 0x36;
     resetSpeed[4] = 0x00;
     resetSpeed[5] = 0x00;
-    resetSpeed[6] = 0x63;
-    resetSpeed[7] = 0xF8;
+
+    unsigned short crc_short = calcCrc(resetSpeed, resetSpeed.length());
+    QString crc = QString::number(crc_short, 16);
+
+    if (crc.length() == 2)
+    {
+        crc = "00" + crc;
+    }else if (crc.length() == 3)
+    {
+        crc = "0" + crc;
+    }
+
+    resetSpeed[6] = crc.mid(2, 2).toInt(0, 16);
+    resetSpeed[7] = crc.mid(0, 2).toInt(0, 16);
+
     serial->write(resetSpeed);
     delete ui;
 }
@@ -89,8 +102,20 @@ void MainWindow::on_connectButton_clicked()
     data[3] = 0x35;
     data[4] = 0x00;
     data[5] = 0x0F;
-    data[6] = 0xD3;
-    data[7] = 0xFC;
+
+    unsigned short crc_short = calcCrc(data, data.length());
+    QString crc = QString::number(crc_short, 16);
+
+    if (crc.length() == 2)
+    {
+        crc = "00" + crc;
+    }else if (crc.length() == 3)
+    {
+        crc = "0" + crc;
+    }
+
+    data[6] = crc.mid(2, 2).toInt(0, 16);
+    data[7] = crc.mid(0, 2).toInt(0, 16);
 
     if (once == false)
     {
@@ -249,6 +274,7 @@ void MainWindow::setSpeed()
  */
 void MainWindow::on_stopButton_clicked()
 {
+    unsigned short crc_short;
     QString value = ui->comboBox_stopType->currentText();
     QByteArray dataStop;
     dataStop[0] = 0x01;
@@ -259,13 +285,37 @@ void MainWindow::on_stopButton_clicked()
     {
         dataStop[4] = 0x00;
         dataStop[5] = 0x07;
-        dataStop[6] = 0xD2;
-        dataStop[7] = 0x3A;
+        crc_short = calcCrc(dataStop, dataStop.length());
+        QString crc = QString::number(crc_short, 16);
+
+        if (crc.length() == 2)
+        {
+            crc = "00" + crc;
+        }else if (crc.length() == 3)
+        {
+            crc = "0" + crc;
+        }
+
+        dataStop[6] = crc.mid(2, 2).toInt(0, 16);
+        dataStop[7] = crc.mid(0, 2).toInt(0, 16);
+
     }else{
+
         dataStop[4] = 0x10;
         dataStop[5] = 0x0F;
-        dataStop[6] = 0xDE;
-        dataStop[7] = 0x3C;
+        crc_short = calcCrc(dataStop, dataStop.length());
+        QString crc = QString::number(crc_short, 16);
+
+        if (crc.length() == 2)
+        {
+            crc = "00" + crc;
+        }else if (crc.length() == 3)
+        {
+            crc = "0" + crc;
+        }
+
+        dataStop[6] = crc.mid(2, 2).toInt(0, 16);
+        dataStop[7] = crc.mid(0, 2).toInt(0, 16);
     }
 
 
@@ -288,7 +338,20 @@ void MainWindow::reset()
     dataReset[3] = 0x35;
     dataReset[4] = 0x00;
     dataReset[5] = 0x86;//86
-    dataReset[6] = 0x12;
-    dataReset[7] = 0x5A;
+
+    unsigned short crc_short = calcCrc(dataReset, dataReset.length());
+    QString crc = QString::number(crc_short, 16);
+
+    if (crc.length() == 2)
+    {
+        crc = "00" + crc;
+    }else if (crc.length() == 3)
+    {
+        crc = "0" + crc;
+    }
+
+    dataReset[6] = crc.mid(2, 2).toInt(0, 16);
+    dataReset[7] = crc.mid(0, 2).toInt(0, 16);
+
     serial->write(dataReset);
 }
